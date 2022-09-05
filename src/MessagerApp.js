@@ -42,20 +42,9 @@ export function MessagerApp() {
     }
   }
 
-  const getMessagesCountIntervalFunction = (currentMessagesSentListCount) => {
-    // interval for checking messagesSent list updated or not on server data base.
-    // Will be Developed ASAP
-    // const interval = 2000
-    // let getMessagesCountInterval = setInterval(() => {
-    //   if (getMessagesCountInterval > 3) {
-    //     clearInterval(getMessagesCountInterval)
-    //     console.log("getMessagesCountInterval cleared: ", getMessagesCountInterval)
-    //   }
-    //   else {
-    //     console.log("getMessagesCountInterval called: ", getMessagesCountInterval)
-    //     state.rootFunctions.getMessagesCountFunction(currentMessagesSentListCount)
-    //   }
-    // }, interval);
+  // Interval ids for each page
+  const initialIntervalIds = {
+    messagesSentIntervalIds: []
   }
 
   const initialRootState = {
@@ -70,7 +59,8 @@ export function MessagerApp() {
     messageSent: false,
     OTP: null,
     composeMessageValidationObj: initialComposeMessageValidationObj,
-    rootStateLoaded: false
+    rootStateLoaded: false,
+    intervalIds: initialIntervalIds
   }
 
   const initialRootFunctions = {
@@ -82,7 +72,6 @@ export function MessagerApp() {
     getContactsListFunction: () => getContactsListFunction(),
     getMessagesSentListFunction: () => getMessagesSentListFunction(),
     getMessagesCountFunction: (count) => getMessagesCountFunction(count),
-    getMessagesCountIntervalFunction: (count) => getMessagesCountIntervalFunction(count),
     sortByDateDescendingFunction: (a, b) => sortByDateDescendingFunction(a, b),
     getOTPFromMessageFunction: (strObj) => getOTPFromMessageFunction(strObj),
     setContactFunction: (obj) => setContactFunction(obj),
@@ -96,7 +85,10 @@ export function MessagerApp() {
     setComposeMessageValidationObjFunction: (obj) => setComposeMessageValidationObjFunction(obj),
     setRootStateLoadedFunction: (boolObj) => setRootStateLoadedFunction(boolObj),
     setReduxRootStateFunction: (functionObj) => setReduxRootStateFunction(functionObj),
-    getReduxRootStateFunction: () => getReduxRootStateFunction()
+    getReduxRootStateFunction: () => getReduxRootStateFunction(),
+    setMessagesSentIntervalIdsFunction: (obj) => setMessagesSentIntervalIdsFunction(obj),
+    resetMessagesSentListFunction: () => resetMessagesSentListFunction(),
+    resetMessagesSentIntervalIdsTimeoutFunction: () => resetMessagesSentIntervalIdsTimeoutFunction()
   }
 
   const [state, setState] = useState({
@@ -113,7 +105,47 @@ export function MessagerApp() {
     state.rootFunctions.setRenderPageFunction(pathName)
   }
 
-  // getting reduxRootState on page reload and updating it on every rootState update
+  //intervals for checking data like messagesSent list updated or not on the server data base.
+  useEffect(() => {
+    const messagesSentList = state.rootState.messagesSentList
+    const intervalIds = state.rootState.intervalIds
+    const messagesSentIntervalIds = intervalIds.messagesSentIntervalIds
+    const messagesSentIntervalIdsLength = messagesSentIntervalIds.length
+    const setMessagesSentIntervalIds = (newObj) => setMessagesSentIntervalIdsFunction(newObj)
+    const renderPage = state.rootState.renderPage
+    const getMessagesCount = (count) => {
+      state.rootFunctions.getMessagesCountFunction(count)
+    }
+    const interval = 2000
+    const startMessagesCountInterval = () => {
+      const currentMessagesSentListCount = messagesSentList.length
+      const startMessagesCountIntervalId = setInterval(() => {
+          getMessagesCount(currentMessagesSentListCount)
+          let newMessagesSentIntervalIds = Object.assign([], messagesSentIntervalIds)
+          newMessagesSentIntervalIds.push(startMessagesCountIntervalId)
+          setMessagesSentIntervalIds(newMessagesSentIntervalIds)
+        },
+        interval
+      )
+    }
+    if (renderPage === "/messagesSent/" && messagesSentList !== null && messagesSentIntervalIdsLength === 0) {
+      startMessagesCountInterval()
+    }
+    else {
+      if (renderPage !== "/messagesSent/" && messagesSentIntervalIdsLength > 0) {
+        messagesSentIntervalIds.map((messagesSentIntervalId) => {
+            clearInterval(messagesSentIntervalId)
+            return messagesSentIntervalId
+          }
+        )
+      }
+    }
+
+    // Define other intervals for other pages if needed here only
+    
+  })
+
+  // Getting reduxRootState on page reload and updating it on every rootState update
   useEffect(
     () => {
       if (state.rootState.rootStateLoaded) {
@@ -143,8 +175,13 @@ export function MessagerApp() {
   }
 
   const getReduxRootStateFunction = () => {
-    const reduxRootState = getReduxRootState()
+    let reduxRootState = getReduxRootState()
+        
     if (reduxRootState !== null) {
+  
+      // All JS intervals are destroyed on page reload so state intervalIds too.
+      reduxRootState.intervalIds = initialIntervalIds
+
       setState(previousState => {
         return { 
           ...previousState,
@@ -156,6 +193,21 @@ export function MessagerApp() {
   
   const navigateFunction = (pathName) => {
     state.rootFunctions.setRenderPageFunction(pathName)
+  }
+
+  const setMessagesSentIntervalIdsFunction = (newObj) => {
+    setState(previousState => {
+      return { 
+        ...previousState,
+        rootState: {
+          ...previousState.rootState,
+          intervalIds: {
+            ...previousState.rootState.intervalIds,
+            messagesSentIntervalIds: newObj
+          }
+        }
+      }
+    })
   }
 
   const setRootStateLoadedFunction = (boolObj) => {
@@ -171,12 +223,13 @@ export function MessagerApp() {
   }
 
   const setRenderPageFunction = (pathName) => {
+    const renderPageObj = pathName
     setState(previousState => {
       return { 
         ...previousState, 
         rootState: {
           ...previousState.rootState,
-          renderPage: pathName
+          renderPage: renderPageObj
         }
       }
     })
@@ -187,12 +240,13 @@ export function MessagerApp() {
     getMessagesSentList()
     .then(response => {
       if (response.name !== 'TypeError') {
+        const messagesSentList = response
         setState(previousState => {
           return { 
             ...previousState,
             rootState: {
               ...previousState.rootState,
-              messagesSentList: response
+              messagesSentList: messagesSentList
             }
           }
         })
@@ -402,11 +456,24 @@ export function MessagerApp() {
     })
   }
 
-  const initializeState = () => { 
-    setState({
-      rootState: initialRootState,
-      rootFunctions: initialRootFunctions
+  const resetMessagesSentListFunction = () => {
+    setState(previousState => {
+      return { 
+        ...previousState,
+        rootState: {
+          ...previousState.rootState,
+          messagesSentList: null
+        }
+      }
     })
+  }
+
+  const resetMessagesSentIntervalIdsTimeoutFunction = () => {
+    const timeout = 2010
+    setTimeout(() => {
+      const initialMessagesSentIntervalIds = []
+      state.rootFunctions.setMessagesSentIntervalIdsFunction(initialMessagesSentIntervalIds)
+    }, timeout);
   }
 
   const initializePage = (currentpathName) => {
@@ -417,34 +484,19 @@ export function MessagerApp() {
     if (isCurrentPath("/messagesSent/")) {
       state.rootFunctions.getMessagesSentListFunction()
     }
-    else if (isCurrentPath("/contacts/")) {
+    if (isCurrentPath("/contacts/")) {
       state.rootFunctions.getContactsListFunction()
     }
-    else if (isCurrentPath("/contactDetails/")) {
+    if (isCurrentPath("/contactDetails/")) {
     }
-    else if (isCurrentPath("/composeMessage/")) {
+    if (isCurrentPath("/composeMessage/")) {
       state.rootFunctions.generateOTPFunction()
       state.rootFunctions.setComposeMessageSubmittedFunction(false)
       state.rootFunctions.setMessageSentFunction(false)
     }
-    else if (isCurrentPath("/error/")) {
-      //Initialize all pages data like messagesSent:messagesSentList 
-      //which are fetch from API so when retry in error page,
-      //it should't show old data
-      setState(previousState => {
-        return { 
-          ...previousState,
-          rootState: {
-            ...previousState.rootState,
-            messagesSentList: null
-            //initialize another data here only if devloped in future
-          }
-        }
-      })
+    if (isCurrentPath("/error/")) {
     }
-    else { //Home page
-      //Reseting state to initial value
-      initializeState()
+    if (isCurrentPath("")) { //Home page
     }
     if (!isCurrentPath("/composeMessage/") && (state.rootState.OTP !== null)) {
       state.rootFunctions.resetOTPFunction()
@@ -452,6 +504,14 @@ export function MessagerApp() {
     if (!isCurrentPath("/error/")) {
       state.rootFunctions.setErrorFunction(null)
     }
+    if (!isCurrentPath("/messagesSent/")) {
+      // Resetting messagesSentIntervalIds with Timeout bigger than intervals
+      state.rootFunctions.resetMessagesSentIntervalIdsTimeoutFunction()
+
+      // resetting messagesSentList on leaving messagesSentList page or on going to error page on error
+      state.rootFunctions.resetMessagesSentListFunction()
+    }
+    
     state.rootFunctions.setRootStateLoadedFunction(true)
   }
 

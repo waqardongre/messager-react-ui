@@ -7,9 +7,6 @@ export function MessagesSentList(props) {
     let messagesSentList = rootState.messagesSentList
     if (messagesSentList !== null) {
         messagesSentList = messagesSentList.slice().sort(sortByDateDescending)
-        const currentMessagesSentListCount = messagesSentList.length
-        const getMessagesCountInterval = (count) => rootFunctions.getMessagesCountIntervalFunction(count)
-        getMessagesCountInterval(currentMessagesSentListCount)
     }
     
     const messagesSentListItems = (listObj) => {

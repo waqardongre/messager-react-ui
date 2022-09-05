@@ -22,7 +22,7 @@ export function Error(props) {
             <br></br>
             <br></br>
             <div className="form-text fs-5">
-                Engineer's Stats:
+                Engineer's stats:
             </div>
             <small className="form-text">Error object: { error.toString() }</small>
         </div>
