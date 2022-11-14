@@ -1,12 +1,6 @@
 export async function getContactsList() {
     const contactsList = [
         {
-            id: 0,
-            firstname: "Kisan Network",
-            lastname: "Test No.",
-            phone: "919810153260"
-        },
-        {
             id: 1,
             firstname: "Mohammad Waqar",
             lastname: "Dongre",
